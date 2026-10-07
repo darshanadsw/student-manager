@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Manager</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { margin-bottom: 1rem; }
+  form { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  input { padding: .45rem; border: 1px solid #bbb; border-radius: 4px; }
+  button { padding: .45rem .8rem; border: 0; border-radius: 4px; background: #2563eb; color: #fff; cursor: pointer; }
+  button.secondary { background: #6b7280; }
+  button.danger { background: #dc2626; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #ddd; }
+  #message { min-height: 1.4rem; margin-bottom: .5rem; }
+  #message.error { color: #b91c1c; }
+  #message.ok { color: #15803d; }
+</style>
+</head>
+<body>
+<h1>Student Manager</h1>
+<div id="message" role="status"></div>
+
+<form id="student-form">
+  <input type="hidden" id="student-id">
+  <input id="name" placeholder="Name" required maxlength="100">
+  <input id="age" type="number" placeholder="Age" min="1" max="120" required>
+  <input id="className" placeholder="Class" required maxlength="50">
+  <button type="submit" id="submit-btn">Add student</button>
+  <button type="button" class="secondary" id="cancel-btn" hidden>Cancel</button>
+</form>
+
+<table>
+  <thead><tr><th>Name</th><th>Age</th><th>Class</th><th>Actions</th></tr></thead>
+  <tbody id="students"></tbody>
+</table>
+
+<script>
+const API = '/api/students';
+const form = document.getElementById('student-form');
+const msg = document.getElementById('message');
+const tbody = document.getElementById('students');
+let students = [];
+
+function show(text, isError) {
+  msg.textContent = text;
+  msg.className = isError ? 'error' : 'ok';
+}
+
+async function request(url, options) {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    let detail = 'Request failed (' + res.status + ')';
+    try {
+      const problem = await res.json();
+      detail = problem.detail || problem.title || detail;
+    } catch (e) { /* non-JSON error body */ }
+    throw new Error(detail);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+function render() {
+  tbody.replaceChildren();
+  for (const s of students) {
+    const tr = document.createElement('tr');
+    for (const value of [s.name, s.age, s.className]) {
+      const td = document.createElement('td');
+      td.textContent = value;
+      tr.appendChild(td);
+    }
+    const actions = document.createElement('td');
+    const edit = document.createElement('button');
+    edit.textContent = 'Edit';
+    edit.addEventListener('click', () => startEdit(s));
+    const del = document.createElement('button');
+    del.textContent = 'Delete';
+    del.className = 'danger';
+    del.addEventListener('click', () => remove(s));
+    actions.append(edit, ' ', del);
+    tr.appendChild(actions);
+    tbody.appendChild(tr);
+  }
+}
+
+async function load() {
+  try {
+    students = await request(API);
+    render();
+  } catch (e) { show(e.message, true); }
+}
+
+function resetForm() {
+  form.reset();
+  document.getElementById('student-id').value = '';
+  document.getElementById('submit-btn').textContent = 'Add student';
+  document.getElementById('cancel-btn').hidden = true;
+}
+
+function startEdit(s) {
+  document.getElementById('student-id').value = s.id;
+  document.getElementById('name').value = s.name;
+  document.getElementById('age').value = s.age;
+  document.getElementById('className').value = s.className;
+  document.getElementById('submit-btn').textContent = 'Update student';
+  document.getElementById('cancel-btn').hidden = false;
+}
+
+async function remove(s) {
+  if (!confirm('Delete ' + s.name + '?')) return;
+  try {
+    await request(API + '/' + s.id, { method: 'DELETE' });
+    show('Student deleted', false);
+    await load();
+  } catch (e) { show(e.message, true); }
+}
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const id = document.getElementById('student-id').value;
+  const payload = {
+    name: document.getElementById('name').value,
+    age: Number(document.getElementById('age').value),
+    className: document.getElementById('className').value
+  };
+  try {
+    await request(id ? API + '/' + id : API, {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    show(id ? 'Student updated' : 'Student added', false);
+    resetForm();
+    await load();
+  } catch (e) { show(e.message, true); }
+});
+
+document.getElementById('cancel-btn').addEventListener('click', resetForm);
+load();
+</script>
+</body>
+</html>
