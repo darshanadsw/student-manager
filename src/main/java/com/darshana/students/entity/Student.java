@@ -5,7 +5,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "students")
@@ -23,6 +26,9 @@ public class Student {
 
     @Column(name = "class_name", nullable = false)
     private String className;
+
+    @ManyToMany(mappedBy = "students")
+    private Set<Course> courses = new HashSet<>();
 
     protected Student() {
     }
