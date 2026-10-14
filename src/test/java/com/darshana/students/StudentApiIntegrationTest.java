@@ -2,12 +2,17 @@ package com.darshana.students;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.darshana.students.dto.CourseRequest;
+import com.darshana.students.dto.CourseResponse;
 import com.darshana.students.dto.StudentRequest;
 import com.darshana.students.dto.StudentResponse;
+import com.darshana.students.repository.CourseRepository;
+import com.darshana.students.repository.StudentRepository;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
@@ -15,22 +20,33 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Transactional
 class StudentApiIntegrationTest {
 
     @LocalServerPort
     private int port;
 
+    @Autowired
+    private CourseRepository courseRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
+
     private RestClient client;
+    private RestClient courseClient;
 
     @BeforeEach
     void setUp() {
+        courseRepository.deleteAll();
+        studentRepository.deleteAll();
         client = RestClient.builder()
                 .baseUrl("http://localhost:" + port + "/api/students")
+                .defaultStatusHandler(status -> true, (request, response) -> { })
+                .build();
+        courseClient = RestClient.builder()
+                .baseUrl("http://localhost:" + port + "/api/courses")
                 .defaultStatusHandler(status -> true, (request, response) -> { })
                 .build();
     }
@@ -190,5 +206,21 @@ class StudentApiIntegrationTest {
         String html = RestClient.create("http://localhost:" + port).get().uri("/").retrieve().body(String.class);
 
         assertThat(html).contains("Student Manager");
+    }
+
+    @Test
+    @DisplayName("Should delete an enrolled student and return 204")
+    void shouldDeleteEnrolledStudent() {
+        StudentResponse student = create("Alice", 15, "10A").getBody();
+        CourseResponse course = courseClient.post()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new CourseRequest("Mathematics", "MATH101", null, 3))
+                .retrieve()
+                .toEntity(CourseResponse.class).getBody();
+        courseClient.post().uri("/{id}/students/{studentId}", course.id(), student.id()).retrieve().toBodilessEntity();
+
+        ResponseEntity<Void> response = client.delete().uri("/{id}", student.id()).retrieve().toBodilessEntity();
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     }
 }

@@ -6,6 +6,7 @@ import com.darshana.students.entity.Student;
 import com.darshana.students.exceptions.StudentNotFoundException;
 import com.darshana.students.mapper.StudentMapper;
 import com.darshana.students.repository.StudentRepository;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +44,9 @@ public class StudentService {
     }
 
     public void delete(Long id) {
-        repository.delete(getOrThrow(id));
+        Student student = getOrThrow(id);
+        new ArrayList<>(student.getCourses()).forEach(course -> course.removeStudent(student));
+        repository.delete(student);
     }
 
     private Student getOrThrow(Long id) {

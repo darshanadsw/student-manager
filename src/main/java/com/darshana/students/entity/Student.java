@@ -66,4 +66,8 @@ public class Student {
     public void setClassName(String className) {
         this.className = className;
     }
+
+    public Set<Course> getCourses() {
+        return courses;
+    }
 }
